@@ -54,35 +54,34 @@ JSON
 
 ```json
 {
-  "name": "app-name",
-  "type": "module",
-  "version": "0.0.1",
-  "scripts": {
-    "dev": "astro dev",
-    "build": "astro build",
-    "preview": "astro preview --port 4320",
-    "astro": "astro"
-  },
-  "dependencies": {
-    "@astrojs/node": "^9.1.3",
-    "@astrojs/ts-plugin": "^1.10.4",
-    "@clerk/astro": "^2.6.3",
-    "astro": "^5.6.1",
-    "astro-htmx": "^1.0.6",
-    "htmx.org": "^2.0.4",
-    "pino": "^9.6.0",
-    "pino-pretty": "^13.0.0",
-    "pg": "^3.4.5"
-    "sql-template-tag": "^5.2.1",
-  },
-  "devDependencies": {
-    "@types/node": "^22.14.1",
-    "prettier": "^3.5.3",
-    "prettier-plugin-astro": "^0.14.1",
-    "typescript": "^5.8.3"
-  }
+  "name": "app-name",
+  "type": "module",
+  "version": "0.0.1",
+  "scripts": {
+    "dev": "astro dev",
+    "build": "astro build",
+    "preview": "astro preview --port 4320",
+    "astro": "astro"
+  },
+  "dependencies": {
+    "@astrojs/node": "^9.1.3",
+    "@astrojs/ts-plugin": "^1.10.4",
+    "@clerk/astro": "^2.6.3",
+    "astro": "^5.6.1",
+    "astro-htmx": "^1.0.6",
+    "htmx.org": "^2.0.4",
+    "pino": "^9.6.0",
+    "pino-pretty": "^13.0.0",
+    "mssql": "^3.4.5",
+    "sql-template-tag": "^5.2.1"
+  },
+  "devDependencies": {
+    "@types/node": "^22.14.1",
+    "prettier": "^3.5.3",
+    "prettier-plugin-astro": "^0.14.1",
+    "typescript": "^5.8.3"
+  }
 }
-
 ```
 
 - Implication: Use the defined scripts (`dev`, `build`, `preview`) for development tasks. Do not add new dependencies without approval.
