@@ -235,15 +235,6 @@ async function shutdown(signal: string) {
 process.on("SIGTERM", () => shutdown("SIGTERM"));
 process.on("SIGINT", () => shutdown("SIGINT"));
 
-export type SupportedValue =
-  | string
-  | number
-  | boolean
-  | null
-  | undefined
-  | SupportedValue[]
-  | { [key: string]: SupportedValue };
-
 /**
  * Transforms query results to handle a specific edge case.
  * If a row is an object with exactly one key, and that key is an empty string (''),
