@@ -4,6 +4,21 @@ You are an amazing senior engineer that is very strict with the rules that were 
 You would like to impress your boss.
 This document outlines the strict coding standards, architectural patterns, and technology usage guidelines for the [Your Project Name] project. Adherence to these rules is mandatory for all code contributions, including AI-generated code.
 
+## Core Technologies
+
+Based on the configuration files, the project utilizes:
+
+- Framework: Astro (v5.x) with SSR (Node.js adapter)
+- Language: TypeScript (strictest mode)
+- Database: PostgreSQL (via `postgres` package)
+- Authentication: Clerk
+- Frontend Interactivity: HTMX & Astro-HTMX Integration, Web Components
+- Logging: Pino (with pino-pretty for development)
+- Code Formatting: Prettier (with Astro plugin)
+- Validation: Zod (via `astro/zod`)
+- Module System: ES Modules (`"type": "module"`)
+- Path Aliases: `@/*`, `@db`, `@sql`, `@logger` are configured.
+
 ## TSConfig
 
 ```json
@@ -16,8 +31,11 @@ This document outlines the strict coding standards, architectural patterns, and 
     "paths": {
       "@/*": ["./src/*"],
       "@db": ["src/lib/db.ts"],
+      "@sql": ["src/lib/sql.ts"],
       "@logger": ["./src/lib/logger.ts"]
     },
+    "noErrorTruncation": true,
+    "noEmitOnError": true,
     "plugins": [
       {
         "name": "@astrojs/ts-plugin"
@@ -27,13 +45,13 @@ This document outlines the strict coding standards, architectural patterns, and 
 }
 ```
 
-- Implication: Adhere strictly to the `strictest` TypeScript configuration. Utilize the defined `paths` for imports (`@/*`, `@db`, `@logger`).
+- Implication: Adhere strictly to the `strictest` TypeScript configuration. Utilize the defined `paths` for imports (`@/*`, `@db`, `@sql`, `@logger`).
 
 ## Package.JSON
 
 JSON
 
-```
+```json
 {
   "name": "app-name",
   "type": "module",
@@ -53,7 +71,8 @@ JSON
     "htmx.org": "^2.0.4",
     "pino": "^9.6.0",
     "pino-pretty": "^13.0.0",
-    "postgres": "^3.4.5"
+    "pg": "^3.4.5"
+    "sql-template-tag": "^5.2.1",
   },
   "devDependencies": {
     "@types/node": "^22.14.1",
@@ -71,52 +90,52 @@ JSON
 
 JavaScript
 
-```
+```js
 // astro.config.mjs
 import { defineConfig, envField } from "astro/config";
 import node from "@astrojs/node"; // Example adapter
-import clerk from "@clerk/astro";
 import htmx from "astro-htmx";
+// only when using clerk
+import clerk from "@clerk/astro";
 
 export default defineConfig({
-  // Enable SSR for all pages
-  output: "server",
+  // Enable SSR for all pages
+  output: "server",
 
-  adapter: node({
-    mode: "standalone",
-  }),
+  adapter: node({
+    mode: "standalone",
+  }),
 
-  integrations: [clerk(), htmx()],
+  integrations: [/* only when using clerk */ clerk(), htmx()], // Define type-safe environment variables
 
-  // Define type-safe environment variables
-  env: {
-    schema: {
-      // Database Credentials (Server-side secrets)
-      DATABASE_HOST: envField.string({ context: "server", access: "secret" }),
-      DATABASE_PORT: envField.number({
-        context: "server",
-        access: "secret",
-        optional: true,
-        default: 5432,
-      }),
-      DATABASE_NAME: envField.string({ context: "server", access: "secret" }),
-      DATABASE_USER: envField.string({ context: "server", access: "secret" }),
-      DATABASE_PASSWORD: envField.string({
-        context: "server",
-        access: "secret",
-      }),
-      PUBLIC_CLERK_PUBLISHABLE_KEY: envField.string({
-        context: "client",
-        access: "public",
-      }),
-      CLERK_SECRET_KEY: envField.string({
-        context: "server",
-        access: "secret",
-      }),
-    },
-  },
+  env: {
+    schema: {
+      // Database Credentials (Server-side secrets)
+      DATABASE_HOST: envField.string({ context: "server", access: "secret" }),
+      DATABASE_PORT: envField.number({
+        context: "server",
+        access: "secret",
+        optional: true,
+        default: 5432,
+      }),
+      DATABASE_NAME: envField.string({ context: "server", access: "secret" }),
+      DATABASE_USER: envField.string({ context: "server", access: "secret" }),
+      DATABASE_PASSWORD: envField.string({
+        context: "server",
+        access: "secret",
+      }),
+      // only when using clerk
+      PUBLIC_CLERK_PUBLISHABLE_KEY: envField.string({
+        context: "client",
+        access: "public",
+      }),
+      CLERK_SECRET_KEY: envField.string({
+        context: "server",
+        access: "secret",
+      }),
+    },
+  },
 });
-
 ```
 
 - Implication: Note the SSR (`output: 'server'`) setup, Node.js adapter, Clerk/HTMX integrations, and the defined type-safe environment variables schema. Server/client context for env vars is crucial.
@@ -125,55 +144,218 @@ export default defineConfig({
 
 JavaScript
 
-```
+```js
 // .prettierrc.mjs
 /** @type {import("prettier").Config} */
 export default {
-  plugins: ["prettier-plugin-astro"],
-  overrides: [
-    {
-      files: "*.astro",
-      options: {
-        parser: "astro",
-      },
-    },
-  ],
+  plugins: ["prettier-plugin-astro"],
+  overrides: [
+    {
+      files: "*.astro",
+      options: {
+        parser: "astro",
+      },
+    },
+  ],
 };
-
 ```
 
 - Implication: All code _must_ be formatted using Prettier with the project's `.prettierrc.mjs` configuration before final output.
 
-## Middleware
+## Logger
 
 TypeScript
 
+```ts
+// src/lib/logger.ts
+import pino from "pino";
+import "pino-pretty";
+
+const logger = pino({
+  level: import.meta.env.LOG_LEVEL || "debug",
+  transport: {
+    target: "pino-pretty",
+    options: {
+      colorize: true,
+      colorizeObjects: true,
+      translateTime: "SYS:standard", // Use a human-readable time format
+      ignore: "pid,hostname",
+    },
+  },
+});
+
+export default logger;
 ```
+
+- Usage Guideline: Use the shared `@logger` instance for _all_ server-side logging. Avoid `console.log`. Use appropriate levels (`logger.info`, `logger.error`, `logger.debug`, etc.) based on the context.
+
+## DB
+
+TypeScript
+
+```ts
+import db, { type config as IConfig, type IResult } from "mssql";
+import logger from "@logger";
+
+// Configure connection options for the 'mssql' package
+const config: IConfig = {
+  server: process.env.DATABASE_HOST || import.meta.env.DATABASE_HOST!,
+  port: +import.meta.env.DATABASE_PORT || 1433,
+  database: import.meta.env.DATABASE_NAME! || "master",
+  user: import.meta.env.DATABASE_USER! || "sa",
+  password: process.env.DATABASE_PASSWORD || import.meta.env.DATABASE_PASSWORD!,
+  options: {
+    encrypt: import.meta.env.PROD,
+    trustServerCertificate: !import.meta.env.PROD,
+  },
+  pool: {
+    max: +import.meta.env.DATABASE_POOL_MAX || 10,
+    min: +import.meta.env.DATABASE_POOL_MIN || 0,
+    idleTimeoutMillis: +import.meta.env.DATABASE_POOL_IDLE_TIMEOUT_MS || 30000,
+  },
+  connectionTimeout: +import.meta.env.DATABASE_CONNECT_TIMEOUT_MS || 15000,
+  requestTimeout: +import.meta.env.DATABASE_REQUEST_TIMEOUT_MS || 15000,
+};
+
+db.connect(config);
+
+// --- Graceful Shutdown ---
+async function shutdown(signal: string) {
+  logger.info(`${signal} signal received: closing database pool.`);
+  try {
+    await db.pool.close();
+    process.exit(0);
+  } catch (error) {
+    logger.error("Error closing database pool:", error);
+    process.exit(1);
+  }
+}
+
+process.on("SIGTERM", () => shutdown("SIGTERM"));
+process.on("SIGINT", () => shutdown("SIGINT"));
+
+export type SupportedValue =
+  | string
+  | number
+  | boolean
+  | null
+  | undefined
+  | SupportedValue[]
+  | { [key: string]: SupportedValue };
+
+/**
+ * Transforms query results to handle a specific edge case.
+ * If a row is an object with exactly one key, and that key is an empty string (''),
+ * it returns the value associated with that key. Otherwise, it returns the original row.
+ * @param result The raw query result object.
+ * @returns An array of transformed records.
+ */
+export function queryTransform<T>(result: IResult<T>) {
+  // T | any because the return type might change
+  const rows = result.recordset;
+
+  const newRows = rows.map((row) => {
+    // Ensure row is a non-null object before processing
+    if (typeof row === "object" && row !== null) {
+      const keys = Object.keys(row); // Get the keys of the current row object
+
+      // Check if there's exactly one key and it's an empty string
+      if (keys.length === 1 && keys[0] === "" && keys[0] in row) {
+        // Return the value associated with the empty string key
+        return row[keys[0]] as T; // Use 'any' for indexing since row[keys[0]] might not directly match T
+      }
+    }
+    // If the condition is not met or if row is not an object, return the original row
+    return row;
+  });
+
+  return newRows;
+}
+
+export default { ...db, queryTransform };
+```
+
+- Usage Guideline: Interact with the database _exclusively_ when doing complex quering that require batch/transaction through the default exported `db` instance from `@db`. Do _not_ create separate database connections. Do not use `queryTransform`.
+
+## SQL
+
+TypeScript
+
+```ts
+import db from "@db";
+import { raw, Sql } from "sql-template-tag";
+
+// Define a type for supported values to improve type safety
+type SupportedValue = string | number | boolean | Date | null | undefined;
+
+/**
+ * Transforms a value for SQL insertion, handling null/undefined and Sql instances.
+ * @param value The value to transform.
+ * @returns A raw SQL "NULL" for null/undefined, or the original value if it's an Sql instance, otherwise the value itself.
+ */
+function transformValueForSql(
+  value: SupportedValue | Sql,
+): SupportedValue | Sql {
+  if (value === null || value === undefined) {
+    return raw("NULL");
+  }
+  return value; // If it's an Sql instance or any other supported value, return as is
+}
+
+/**
+ * Executes a SQL query using sql-template-tag and a database connection.
+ * @param strings The string parts of the SQL template literal.
+ * @param values The values to interpolate into the SQL query.
+ * @returns A Promise that resolves to the query result of type T.
+ * @throws An Error if the 'query' method does not exist on the imported db object.
+ */
+async function sql<T>(
+  strings: readonly string[],
+  ...values: Array<SupportedValue | Sql>
+) {
+  if (!("query" in db && typeof db.query === "function")) {
+    throw new Error(
+      `The 'query' method must exist and be a function on the imported db object!`,
+    );
+  }
+
+  const transformedValues = values.map(transformValueForSql);
+
+  const sqlQuery = new Sql(strings, transformedValues);
+
+  if (!("queryTransform" in db) || typeof db.queryTransform !== "function") {
+    throw new Error(`queryTransform must exist on imported db`);
+  }
+
+  const result = await db
+    .query<
+      T extends any[] ? T[0] : T
+    >(sqlQuery.strings as any, ...sqlQuery.values)
+    .then(db.queryTransform);
+
+  return result;
+}
+
+export default sql;
+```
+
+- Usage Guideline: Interact with the database _exclusively_ via `sql` instance from `@sql`.
+  Always use parameterized queries (the `sql-template-tag` package handles this automatically when using tagged template literals like `sql` `SELECT * FROM users WHERE id = ${userId}`) to prevent SQL injection.
+
+## Middleware (Only when using clerk!)
+
+TypeScript
+
+```ts
 // src/middleware.ts
 import { clerkMiddleware } from "@clerk/astro/server";
 import { defineMiddleware } from "astro:middleware";
 
 // Astro middleware runs on every request in 'server' or 'hybrid' mode.
 export const onRequest = defineMiddleware(clerkMiddleware());
-
 ```
 
 - Implication: Understand that the Clerk middleware runs on every request due to `src/middleware.ts`.
-
-## Core Technologies
-
-Based on the configuration files, the project utilizes:
-
-- Framework: Astro (v5.x) with SSR (Node.js adapter)
-- Language: TypeScript (strict mode)
-- Database: PostgreSQL (via `postgres` package)
-- Authentication: Clerk
-- Frontend Interactivity: HTMX & Astro-HTMX Integration, Web Components
-- Logging: Pino (with pino-pretty for development)
-- Code Formatting: Prettier (with Astro plugin)
-- Validation: Zod (via `astro/zod`)
-- Module System: ES Modules (`"type": "module"`)
-- Path Aliases: `@/*`, `@db`, `@logger` are configured.
 
 ## Environment Variable Access
 
@@ -183,6 +365,7 @@ TypeScript
 
 ```
 import {} from /* All secrets that are from server */ "astro:env/server";
+import {} from /* All env vars that are from client */ "astro:env/client";
 
 ```
 
@@ -195,7 +378,7 @@ const /*SECRET*/ = import.meta.env./*SECRET*/
 
 ```
 
-- Best Practice: Never hardcode secrets. Always use environment variables accessed via `astro:env/server` or `import.meta.env` as appropriate. Ensure sensitive variables are correctly marked `access: 'secret'` in `astro.config.mjs`.
+- Best Practice: Never hardcode secrets. Always use environment variables accessed via `astro:env/server` or `astro:env/client` or `import.meta.env` as appropriate. Ensure sensitive variables are correctly marked `access: 'secret'` in `astro.config.mjs`.
 
 ## Access Props
 
@@ -209,90 +392,11 @@ const props = Astro.props;
 
 - Always define the `Props` type for components and pages receiving props.
 
-## Logger
-
-TypeScript
-
-```
-// src/lib/logger.ts
-import pino from "pino";
-import "pino-pretty";
-
-const logger = pino({
-  level: import.meta.env.LOG_LEVEL || "debug",
-  transport: {
-    target: "pino-pretty",
-    options: {
-      colorize: true,
-      colorizeObjects: true,
-      translateTime: "SYS:standard", // Use a human-readable time format
-      ignore: "pid,hostname",
-    },
-  },
-});
-
-export default logger;
-
-```
-
-- Usage Guideline: Use the shared `@logger` instance for _all_ server-side logging. Avoid `console.log`. Use appropriate levels (`logger.info`, `logger.error`, `logger.debug`, etc.) based on the context.
-
-## DB
-
-TypeScript
-
-```
-// src/lib/db.ts
-import postgres from "postgres";
-import logger from "@logger";
-
-// Configure connection options for the 'postgres' package
-const options: postgres.Options<{}> = {
-  host: import.meta.env.DATABASE_HOST,
-  port: import.meta.env.DATABASE_PORT,
-  database: import.meta.env.DATABASE_NAME,
-  username: import.meta.env.DATABASE_USER,
-  password: import.meta.env.DATABASE_PASSWORD,
-  ssl: import.meta.env.PROD ? "require" : false, // Example: Enforce SSL in production
-  max: 10, // Max number of connections in the pool (adjust based on load/DB plan limits)
-  idle_timeout: 30, // Seconds before closing idle connections in the pool
-  max_lifetime: 60 * 30, // Max lifetime of a connection (e.g., 30 minutes) to prevent stale connections
-  connect_timeout: 10, // Connection timeout in seconds
-  transform: { undefined: null },
-};
-
-// Create a single, shared connection pool instance.
-// The 'postgres' package manages the pool automatically.
-const sql = postgres(options);
-
-// Optional but recommended: Graceful shutdown handling
-// Ensures connections are closed properly when the server process terminates.
-async function shutdown(signal: string) {
-  logger.info(`${signal} signal received: closing database pool.`);
-  try {
-    await sql.end({ timeout: 5 }); // Allow 5 seconds for connections to close gracefully
-    logger.info("Database pool closed successfully.");
-    process.exit(0);
-  } catch (error) {
-    logger.error("Error closing database pool:", error);
-    process.exit(1); // Exit with error code
-  }
-}
-
-process.on("SIGTERM", () => shutdown("SIGTERM"));
-process.on("SIGINT", () => shutdown("SIGINT")); // Catches Ctrl+C
-
-export default sql;
-
-```
-
-- Usage Guideline: Interact with the database _exclusively_ through the exported `sql` instance from `@db`. Do _not_ create separate database connections. Always use parameterized queries (the `postgres` package handles this automatically when using tagged template literals like `sql` `SELECT * FROM users WHERE id = ${userId}`) to prevent SQL injection.
-
 ## Layout
 
 Code snippet
 
-```
+```astro
 ---
 // src/layout/Layout.astro
 type Props = { title: string };
@@ -388,11 +492,6 @@ const props = Astro.props;
     scroll-behavior: smooth;
   }
 
-  body {
-    scroll-behavior: smooth;
-    font-family: Rubik;
-  }
-
   ul {
     list-style-type: none;
   }
@@ -421,10 +520,9 @@ const props = Astro.props;
 
 TypeScript
 
-```
+```ts
 const userId = Astro.locals.auth().userId;
 // userId initialized then authenticated else then unauthenticated
-
 ```
 
 - Use `Astro.locals` within Astro components (`.astro`), middleware, and API routes to access authentication state provided by the Clerk middleware.
@@ -435,19 +533,18 @@ const userId = Astro.locals.auth().userId;
 
 TypeScript
 
-```
+```ts
 const userId = Astro.locals.auth().userId;
 if (userId) {
-  return Astro.redirect("/dashboard");
+  return Astro.redirect("/dashboard");
 }
-
 ```
 
 ### When unauthenticated
 
 TypeScript
 
-```
+```ts
 conNst userId = Astro.locals.auth().userId;
 if (!userId) {
   return Astro.redirect("/login");
@@ -481,7 +578,7 @@ Where the file structure would like something like this:
 
 TypeScript
 
-```
+```ts
 import { z } from "astro/zod"
 import logger from "@logger";
 import sql from "@db";
@@ -631,39 +728,35 @@ Webcomponents files must follow this structure and naming convention:
 
 TypeScript
 
-```
+```ts
 // src/lib/webcomponents/ComponentName.ts
 
 // It should extend the appropriate HTMLElement (e.g., HTMLElement, HTMLButtonElement)
 export default class ComponentName extends HTMLButtonElement {
-  // Static property for the custom element tag name (kebab-case)
-  static elementName = "component-name";
+  // Static property for the custom element tag name (kebab-case)
+  static elementName = "component-name";
 
-  constructor() {
-    super();
-    // Initialize component state, attach shadow DOM if needed
-  }
+  constructor() {
+    super(); // Initialize component state, attach shadow DOM if needed
+  }
 
-  connectedCallback() {
-    // Logic to run when the element is added to the DOM
-    // Access data attributes via this.dataset.propertyName
-    console.log("Data passed:", this.dataset.someData);
-     // Add event listeners, etc.
-  }
+  connectedCallback() {
+    // Logic to run when the element is added to the DOM
+    // Access data attributes via this.dataset.propertyName
+    console.log("Data passed:", this.dataset.someData);
+    // Add event listeners, etc.
+  }
 
   disconnectedCallback() {
     // Cleanup logic when element is removed from DOM (e.g., remove event listeners)
-  }
-
-  // Add other methods and properties as needed
+  } // Add other methods and properties as needed
 }
 
 // Define the custom element. This ensures the component is self-registering when imported.
 // Match the tag name in define() with elementName and the 'extends' option if applicable.
 customElements.define(ComponentName.elementName, ComponentName, {
-  extends: "button", // Specify the built-in element being extended, if any
+  extends: "button", // Specify the built-in element being extended, if any
 });
-
 ```
 
 - Naming Convention: Web Component files go in `src/lib/webcomponents/ComponentName.ts`. The class name is `ComponentName` (UpperCamelCase). The static `elementName` property and the registered tag name _must_ be `component-name` (kebab-case).
@@ -769,7 +862,7 @@ To prevent accidental `id` duplication, enhance refactorability, and ensure cons
 
     _Example Definition (`src/lib/constants/ids.ts`):_
 
-    ```typescript
+    ```ts
     export const PageIDs = {
       // Product Page related IDs
       productList: "product-list",
