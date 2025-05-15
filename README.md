@@ -11,8 +11,8 @@ Based on the configuration files, the project utilizes:
 
 - Framework: Astro (v5.x) with SSR (Node.js adapter)
 - Language: TypeScript (strictest mode)
-- Database: PostgreSQL (via `postgres` package)
 - Authentication: Clerk
+- Database: Microsoft SQL Server (via `mssql` package)
 - Frontend Interactivity: HTMX & Astro-HTMX Integration, Web Components
 - Logging: Pino (with pino-pretty for development)
 - Code Formatting: Prettier (with Astro plugin)
