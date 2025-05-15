@@ -65,7 +65,6 @@ JSON
   },
   "dependencies": {
     "@astrojs/node": "^9.1.3",
-    "@astrojs/ts-plugin": "^1.10.4",
     "@clerk/astro": "^2.6.3",
     "astro": "^5.6.1",
     "astro-htmx": "^1.0.6",
@@ -77,6 +76,8 @@ JSON
   },
   "devDependencies": {
     "@types/node": "^22.14.1",
+    "@astrojs/ts-plugin": "^1.10.4",
+    "@types/mssql": "^9.1.7",
     "prettier": "^3.5.3",
     "prettier-plugin-astro": "^0.14.1",
     "typescript": "^5.8.3"
